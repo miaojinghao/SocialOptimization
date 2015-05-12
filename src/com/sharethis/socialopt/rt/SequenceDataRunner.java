@@ -12,9 +12,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -110,7 +111,8 @@ public class SequenceDataRunner extends Configured implements Tool {
 		// Set input and output file format
 		job.setInputFormatClass(TextInputFormat.class);
 		// job.setInputFormatClass(SequenceDataInputFormat.class);
-		job.setOutputFormatClass(TextOutputFormat.class);
+		// job.setOutputFormatClass(TextOutputFormat.class);
+		LazyOutputFormat.setOutputFormatClass(job, TextOutputFormat.class);
 		
 		// Set input file paths
 		int nDays = 0;
@@ -126,43 +128,74 @@ public class SequenceDataRunner extends Configured implements Tool {
 		}
 		
 		String str_startdate = rf.get("StartDate", "");
-		if (!str_startdate.equals("")) {
-			conf.set("start_date", str_startdate);
+		if (!str_startdate.equals(""))
 			logger.info("Getting start date: " + str_startdate);
-		}
 		else {
 			logger.error("Invalid input file start date.");
 			return -1;
 		}
 		
-		for (int i = 0; i < 24; i++) {
-			String hour = String.format("%02d", i);
-			// String fileName = "s3n://sharethis-insights-backup/camp_data_hourly/" + str_startdate + hour + "/all_data_hourly";
-			String fileName = "/user/btdev/projects/modeldata/prod/all_soc_hourly/" + str_startdate + hour + "/all_soc_data_hourly";
-			Path p = new Path(fileName);
-			FileSystem fs = p.getFileSystem(conf);
-			if (fs.exists(p)) 
-				FileInputFormat.addInputPath(job, p);
-		}
-		
-		while (nDays > 0) {
+		String str_inputdate = str_startdate;
+		int nInputDays = nDays;
+		if (nInputDays > 0) {
 			for (int i = 0; i < 24; i++) {
 				String hour = String.format("%02d", i);
-				String fileName = "s3n://sharethis-campaign-analytics/retarg/" + str_startdate + hour + "/data";
+				// String fileName = "s3n://sharethis-insights-backup/camp_data_hourly/" + str_startdate + hour + "/all_data_hourly";
+				String fileName = "/user/btdev/projects/modeldata/prod/all_soc_hourly/" + str_inputdate + hour + "/all_soc_data_hourly";
+				logger.info("Getting input files: " + fileName);
 				Path p = new Path(fileName);
 				FileSystem fs = p.getFileSystem(conf);
 				if (fs.exists(p)) 
 					FileInputFormat.addInputPath(job, p);
 			}
-			nDays--;
-			str_startdate = STDateUtils.getNextDay(str_startdate);
+			nInputDays--;
+			str_inputdate = STDateUtils.getPreviousDay(str_inputdate);
 		}
+		while (nInputDays > 0) {
+			// String fileName = "s3n://sharethis-insights-backup/camp_data_hourly/" + str_startdate + hour + "/all_data_hourly";
+			String fileName = "/user/btdev/projects/modeldata/prod/rt_daily/" + str_inputdate;
+			Path p = new Path(fileName);
+			FileSystem fs = p.getFileSystem(conf);
+			if (fs.exists(p)) {
+				logger.info("Getting input files: " + fileName);
+				FileInputFormat.addInputPath(job, p);
+			}
+			else {
+				for (int i = 0; i < 24; i++) {
+					String hour = String.format("%02d", i);
+					// String fileName = "s3n://sharethis-insights-backup/camp_data_hourly/" + str_startdate + hour + "/all_data_hourly";
+					fileName = "/user/btdev/projects/modeldata/prod/all_soc_hourly/" + str_inputdate + hour + "/all_soc_data_hourly";
+					logger.info("Getting input files: " + fileName);
+					p = new Path(fileName);
+					fs = p.getFileSystem(conf);
+					if (fs.exists(p)) 
+						FileInputFormat.addInputPath(job, p);
+				}
+			}
+			nInputDays--;
+			str_inputdate = STDateUtils.getPreviousDay(str_inputdate);
+		}
+				
+		// while (nDays > 0) {
+		for (int i = 0; i < 24; i++) {
+			String hour = String.format("%02d", i);
+			String fileName = "s3n://sharethis-campaign-analytics/retarg/" + str_startdate + hour + "/data";
+			// String fileName = "s3n://sharethis-research/campaign_analytics/retarg/" + str_startdate + hour + "/data";
+			logger.info("Getting input file: " + fileName);
+			Path p = new Path(fileName);
+			FileSystem fs = p.getFileSystem(conf);
+			if (fs.exists(p)) 
+				FileInputFormat.addInputPath(job, p);
+		}
+		//	nDays--;
+		//	str_startdate = STDateUtils.getNextDay(str_startdate);
+		// }
 		
 		// Set output file path
 		String output_path = rf.get("OutputPath", "");
 		if (output_path != null && !output_path.isEmpty()) {
-			logger.info("Getting output path: " + output_path);
-			Path p = new Path(output_path);
+			logger.info("Getting output path: " + output_path + "/temp");
+			Path p = new Path(output_path + "/temp");
 			FileSystem fs = p.getFileSystem(conf);
 			if (fs.exists(p))
 				fs.delete(p, true);
@@ -173,7 +206,27 @@ public class SequenceDataRunner extends Configured implements Tool {
 			return -1;
 		}
 		
-		return job.waitForCompletion(true) ? 1 : 0;
+		boolean ret = job.waitForCompletion(true);
+		if (ret) {
+			// Move output file
+			int nOutputDays = nDays;
+			String str_outputdate = str_startdate;
+			while (nOutputDays > 0) {
+				Path src = new Path(output_path + "/temp/" + str_outputdate);
+				Path dst = new Path(output_path + "/" + str_outputdate);
+				FileSystem fs = src.getFileSystem(conf);
+				if (fs.exists(src)) {
+					if (fs.exists(dst))
+						fs.delete(dst, true);
+					fs.rename(src, dst);
+				}
+				nOutputDays--;
+				str_outputdate = STDateUtils.getPreviousDay(str_outputdate);
+			}
+			return 1;
+		}
+		else
+			return 0;
 	}
 	
 	public static void main(String[] args) throws Exception {

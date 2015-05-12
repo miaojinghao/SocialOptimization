@@ -6,6 +6,7 @@ public class Constants {
 	public static final String COLLECT_RT_LOGGER_NAME = "rt.conversions";
 	public static final String COLLECT_DLX_LOGGER_NAME = "rtb.dlx";
 	public static final String COLLECT_DATASET_LOGGER_NAME = "modeling.dataset";
+	public static final String COLLECT_MOAT_LOGGER_NAME = "moat";
 	public static final int NUM_REDUCER = 500;
 	public static final int NUM_DLX_DIM = 17;
 	
@@ -55,7 +56,8 @@ public class Constants {
 		"geo_ctry_soc", "dlx_bit_soc", "version_soc","pview_cnt_soc", "search_cnt_soc",
 		"share_cnt_soc", "click_cnt_soc", "dmn_cnt_soc", "chnl_cnt_soc", "cat_cnt_soc",
 		"events_soc", "dlx_seg_soc", "dmn_list_soc", "chnl_list_soc", "cat_list_soc",
-		"event_list_soc", "conv_enabled", "conversion"
+		"event_list_soc", "conv_enabled", "conversion", "site_moat_enabled", "site_moat",
+		"ad_moat_enabled", "ad_moat"
 	};
 	
 	

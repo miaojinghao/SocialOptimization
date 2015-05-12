@@ -84,6 +84,16 @@ public class STDateUtils {
 			return "00";
 	}
 	
+	public static String getDate(String ms) {
+		String date = format(ms);
+		if (date != null && !date.isEmpty() && date.length() >= 17) {
+			String dt = date.substring(0, 8);
+			return dt;
+		}
+		else
+			return "00000000";
+	}
+	
 	public static String getDayOfWeek(String ms) {
 		try {
 			Calendar cal = Calendar.getInstance();
@@ -94,5 +104,9 @@ public class STDateUtils {
 		} catch (NumberFormatException e) {
 			return "1";
 		}
+	}
+	
+	public static void main(String[] args) throws Exception {
+		System.out.println(STDateUtils.format("1430180037009"));
 	}
 }
