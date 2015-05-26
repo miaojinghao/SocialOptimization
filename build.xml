@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project basedir="." default="build" name="SocialOptimization">
+	<property name="version" value="HEAD"/>
+	<property name="BUILD.BASE" value="${basedir}/build"/>
+	<property name="BUILD.DIR" value="${BUILD.BASE}/${version}" />
+    <path id="SocialOptimization.classpath">
+        <pathelement location="bin"/>
+        <pathelement location="lib/commons-cli-1.2.jar"/>
+        <pathelement location="lib/commons-codec-1.10.jar"/>
+        <pathelement location="lib/commons-configuration-1.10.jar"/>
+        <pathelement location="lib/commons-lang-2.6.jar"/>
+        <pathelement location="lib/commons-lang3-3.3.2.jar"/>
+        <pathelement location="lib/commons-logging-1.2.jar"/>
+        <pathelement location="lib/gson-2.3.1.jar"/>
+        <pathelement location="lib/guava-18.0.jar"/>
+        <pathelement location="lib/hadoop-common-2.6.0.jar"/>
+        <pathelement location="lib/hadoop-core-1.2.1.jar"/>
+        <pathelement location="lib/log4j-1.2.17.jar"/>
+        <pathelement location="lib/UserAgentUtils-1.15.jar"/>
+        <pathelement location="lib/json-20140107.jar"/>
+    </path>
+    
+	<target depends="clean-all" name="init">
+        <mkdir dir="bin"/>
+		<mkdir dir="jar"/>
+        <copy includeemptydirs="false" todir="bin">
+            <fileset dir="src">
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+    </target>
+	
+    <target name="clean">
+        <delete dir="bin"/>
+    	<delete dir="jar"/>
+    	<delete dir="install"/>
+    	<delete file="MANIFEST.MF"/>
+    </target>
+	
+	<target depends="clean" name="clean-all"/>
+	
+    <target depends="init" name="build">
+        <echo message="${ant.project.name}: ${ant.file}"/>
+        <javac debug="true" destdir="bin" includeantruntime="false">
+            <src path="src"/>
+            <classpath refid="SocialOptimization.classpath"/>
+        </javac>
+    </target>
+   
+	<tstamp>
+		<format property="DATE-TIME" pattern="yyyy-MM-dd kk:mm:ss" unit="second"/>
+	</tstamp>
+	<target depends="build" name="make_jar">
+		<manifest file="MANIFEST.MF">
+			<attribute name="Extension-Name" value="SocialOptimization"/>
+			<attribute name="Implementation-Version" value="${version}"/>
+			<attribute name="Built-Date" value="${DATE-TIME}"/>
+			<attribute name="Built-By" value="${user.name}"/>
+			<attribute name="Created-By" value="Apache Ant"/>
+		</manifest>
+		<jar basedir="${basedir}" jarfile="jar/SocialOpt.jar" manifest="MANIFEST.MF"/>
+	</target>
+	
+	<target depends="make_jar" name="install">
+		<mkdir dir="install"/>
+		<mkdir dir="install/bin"/>
+		<mkdir dir="install/log"/>
+		<mkdir dir="install/conf"/>
+		<mkdir dir="install/java"/>
+		<copy file="scripts/run.sh" todir="install/bin"/>
+		<copy file="scripts/get_pixels.py" todir="install/bin"/>
+		<copy file="conf/log4j.properties" todir="install/conf"/>
+		<copy file="jar/SocialOpt.jar" todir="install/java"/>
+		<chmod perm="755" file="install/bin/run.sh"/>
+		<chmod perm="755" file="install/bin/get_pixels.py"/>
+	</target>
+</project>
